@@ -1,6 +1,24 @@
 import { supabase, JOBS_TABLE } from '@/lib/supabase';
 import { JobPostingData } from '@/types';
 
+// Lista de campos que existen en la tabla de la base de datos
+const VALID_DB_FIELDS = [
+  'job_posting_id',
+  'job_title',
+  'company_name',
+  'job_location',
+  'job_work_type',
+  'job_base_pay_range',
+  'job_posted_time_ago',
+  'job_description_formatted',
+  'job_requirements',
+  'job_qualifications',
+  'company_industry',
+  'company_description',
+  'applicant_count',
+  'created_at'
+];
+
 /**
  * Guarda los datos de una oferta de trabajo en la base de datos
  * @param jobData Datos de la oferta de trabajo
@@ -9,6 +27,30 @@ import { JobPostingData } from '@/types';
 export async function saveJobData(jobData: JobPostingData) {
   try {
     console.log('Intentando guardar oferta de trabajo:', jobData.job_posting_id);
+    
+    // Filtrar solo los campos válidos que existen en la base de datos
+    const filteredJobData: Record<string, unknown> = {};
+    for (const field of VALID_DB_FIELDS) {
+      if (field in jobData) {
+        filteredJobData[field] = jobData[field as keyof JobPostingData];
+      }
+    }
+    
+    // Asegurarse de que los campos requeridos estén presentes
+    filteredJobData.job_posting_id = jobData.job_posting_id;
+    filteredJobData.job_title = jobData.job_title || 'Sin título';
+    filteredJobData.company_name = jobData.company_name || 'Empresa desconocida';
+    filteredJobData.job_location = jobData.job_location || 'Ubicación desconocida';
+    filteredJobData.created_at = jobData.created_at || new Date().toISOString();
+    
+    // Asegurarse de que los arrays sean realmente arrays o null
+    if ('job_requirements' in filteredJobData && !Array.isArray(filteredJobData.job_requirements)) {
+      filteredJobData.job_requirements = null;
+    }
+    
+    if ('job_qualifications' in filteredJobData && !Array.isArray(filteredJobData.job_qualifications)) {
+      filteredJobData.job_qualifications = null;
+    }
     
     // Verificar si la oferta ya existe en la base de datos
     const { data: existingJob, error: selectError } = await supabase
@@ -24,10 +66,12 @@ export async function saveJobData(jobData: JobPostingData) {
 
     if (existingJob) {
       console.log('Actualizando oferta existente:', jobData.job_posting_id);
+      console.log('Datos filtrados para actualización:', JSON.stringify(filteredJobData));
+      
       // Actualizar la oferta existente
       const { error: updateError } = await supabase
         .from(JOBS_TABLE)
-        .update(jobData)
+        .update(filteredJobData)
         .eq('job_posting_id', jobData.job_posting_id);
 
       if (updateError) {
@@ -39,38 +83,17 @@ export async function saveJobData(jobData: JobPostingData) {
       return {
         success: true,
         message: 'Datos de la oferta de trabajo actualizados correctamente',
-        data: jobData
+        data: filteredJobData
       };
     }
 
     console.log('Creando nueva oferta:', jobData.job_posting_id);
-    
-    // Preparar los datos para inserción, asegurando que todos los campos sean válidos
-    const cleanedJobData = {
-      job_posting_id: jobData.job_posting_id,
-      job_title: jobData.job_title || 'Sin título',
-      company_name: jobData.company_name || 'Empresa desconocida',
-      job_location: jobData.job_location || 'Ubicación desconocida',
-      created_at: jobData.created_at || new Date().toISOString(),
-      // Campos opcionales
-      job_work_type: jobData.job_work_type || null,
-      job_base_pay_range: jobData.job_base_pay_range || null,
-      job_posted_time_ago: jobData.job_posted_time_ago || null,
-      job_description_formatted: jobData.job_description_formatted || null,
-      // Asegurarse de que los arrays sean realmente arrays o null
-      job_requirements: Array.isArray(jobData.job_requirements) ? jobData.job_requirements : null,
-      job_qualifications: Array.isArray(jobData.job_qualifications) ? jobData.job_qualifications : null,
-      company_industry: jobData.company_industry || null,
-      company_description: jobData.company_description || null,
-      applicant_count: typeof jobData.applicant_count === 'number' ? jobData.applicant_count : null
-    };
-    
-    console.log('Datos limpios para inserción:', JSON.stringify(cleanedJobData));
+    console.log('Datos filtrados para inserción:', JSON.stringify(filteredJobData));
     
     // Crear nueva oferta
     const { error: insertError } = await supabase
       .from(JOBS_TABLE)
-      .insert([cleanedJobData]);
+      .insert([filteredJobData]);
 
     if (insertError) {
       console.error('Error al insertar nueva oferta:', JSON.stringify(insertError));
@@ -81,7 +104,7 @@ export async function saveJobData(jobData: JobPostingData) {
     return {
       success: true,
       message: 'Datos de la oferta de trabajo guardados correctamente',
-      data: jobData
+      data: filteredJobData
     };
   } catch (error) {
     console.error('Error al guardar datos de la oferta de trabajo:', error);
