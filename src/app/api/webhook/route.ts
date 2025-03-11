@@ -9,73 +9,105 @@ export async function POST(request: NextRequest) {
     // Registrar los datos recibidos para depuración
     console.log('Webhook recibido - Datos:', JSON.stringify(body, null, 2));
     
-    // Intentar extraer job_data de diferentes posibles estructuras
-    let jobData: JobPostingData;
+    // Manejar diferentes formatos de datos
+    let jobsToProcess: JobPostingData[] = [];
     
-    if (body.job_data) {
-      // Formato esperado: { job_data: {...} }
-      jobData = {
+    // Caso 1: Si es un array de objetos (como en el error reportado)
+    if (Array.isArray(body)) {
+      console.log('Detectado formato de array de objetos');
+      jobsToProcess = body.map(item => ({
+        ...item,
+        created_at: new Date().toISOString()
+      }));
+    } 
+    // Caso 2: Si es un objeto con job_data (formato original esperado)
+    else if (body.job_data) {
+      console.log('Detectado formato con job_data');
+      jobsToProcess = [{
         ...body.job_data,
         created_at: new Date().toISOString()
-      };
-    } else if (body.data && body.data.job) {
-      // Posible formato alternativo: { data: { job: {...} } }
-      jobData = {
+      }];
+    } 
+    // Caso 3: Si es un objeto con data.job
+    else if (body.data && body.data.job) {
+      console.log('Detectado formato con data.job');
+      jobsToProcess = [{
         ...body.data.job,
         created_at: new Date().toISOString()
-      };
-    } else if (body.result && body.result.data) {
-      // Otro posible formato: { result: { data: {...} } }
-      jobData = {
+      }];
+    } 
+    // Caso 4: Si es un objeto con result.data
+    else if (body.result && body.result.data) {
+      console.log('Detectado formato con result.data');
+      jobsToProcess = [{
         ...body.result.data,
         created_at: new Date().toISOString()
-      };
-    } else if (typeof body === 'object' && body.job_posting_id) {
-      // Si los datos de trabajo están directamente en el objeto raíz
-      jobData = {
+      }];
+    } 
+    // Caso 5: Si los datos están directamente en el objeto raíz
+    else if (typeof body === 'object' && body.job_posting_id) {
+      console.log('Detectado formato con datos directamente en el objeto raíz');
+      jobsToProcess = [{
         ...body,
         created_at: new Date().toISOString()
-      };
-    } else {
-      // Si no podemos identificar la estructura, registramos el error y devolvemos un mensaje detallado
+      }];
+    } 
+    // Si no se reconoce ningún formato
+    else {
       console.error('Estructura de datos no reconocida:', body);
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Datos de webhook inválidos. Se esperaba un objeto con job_data o datos de trabajo directamente.',
+          message: 'Datos de webhook inválidos. Formato no reconocido.',
           received: body 
         },
         { status: 400 }
       );
     }
 
-    // Validar que jobData tenga al menos los campos requeridos
-    if (!jobData.job_posting_id || !jobData.job_title || !jobData.company_name) {
-      console.error('Datos de trabajo incompletos:', jobData);
+    // Verificar que tenemos datos para procesar
+    if (jobsToProcess.length === 0) {
       return NextResponse.json(
         { 
           success: false, 
-          message: 'Datos de trabajo incompletos. Se requieren job_posting_id, job_title y company_name.',
-          received: jobData 
+          message: 'No se encontraron datos de trabajo válidos para procesar',
+          received: body 
         },
         { status: 400 }
       );
     }
 
-    // Guardar los datos en la base de datos
-    const result = await saveJobData(jobData);
+    // Procesar todos los trabajos
+    const results = [];
+    for (const jobData of jobsToProcess) {
+      // Validar que jobData tenga al menos los campos requeridos
+      if (!jobData.job_posting_id || !jobData.job_title || !jobData.company_name) {
+        console.warn('Datos de trabajo incompletos, omitiendo:', jobData);
+        continue;
+      }
 
-    if (!result.success) {
+      // Guardar los datos en la base de datos
+      const result = await saveJobData(jobData);
+      results.push(result);
+    }
+
+    // Verificar si al menos un trabajo se guardó correctamente
+    const anySuccess = results.some(result => result.success);
+    if (!anySuccess) {
       return NextResponse.json(
-        { success: false, message: result.message },
+        { 
+          success: false, 
+          message: 'No se pudo guardar ningún trabajo',
+          details: results 
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Datos de la oferta de trabajo recibidos y guardados correctamente',
-      data: result.data
+      message: `Se procesaron ${results.length} ofertas de trabajo. ${results.filter(r => r.success).length} guardadas correctamente.`,
+      results: results
     });
   } catch (error) {
     console.error('Error al procesar datos del webhook:', error);
