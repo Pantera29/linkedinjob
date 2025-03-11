@@ -77,18 +77,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`Procesando ${jobsToProcess.length} ofertas de trabajo`);
+
     // Procesar todos los trabajos
     const results = [];
     for (const jobData of jobsToProcess) {
       // Validar que jobData tenga al menos los campos requeridos
-      if (!jobData.job_posting_id || !jobData.job_title || !jobData.company_name) {
+      if (!jobData.job_posting_id || !jobData.job_title || !jobData.company_name || !jobData.job_location) {
         console.warn('Datos de trabajo incompletos, omitiendo:', jobData);
+        results.push({
+          success: false,
+          message: 'Datos de trabajo incompletos',
+          data: jobData
+        });
         continue;
       }
 
-      // Guardar los datos en la base de datos
-      const result = await saveJobData(jobData);
-      results.push(result);
+      try {
+        // Guardar los datos en la base de datos
+        console.log(`Guardando oferta: ${jobData.job_title} - ${jobData.company_name}`);
+        const result = await saveJobData(jobData);
+        results.push(result);
+      } catch (error) {
+        console.error(`Error al guardar oferta ${jobData.job_posting_id}:`, error);
+        results.push({
+          success: false,
+          message: 'Error al guardar oferta',
+          error: error instanceof Error ? error.message : String(error),
+          data: jobData
+        });
+      }
     }
 
     // Verificar si al menos un trabajo se guardó correctamente

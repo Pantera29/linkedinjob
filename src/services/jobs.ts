@@ -8,22 +8,34 @@ import { JobPostingData } from '@/types';
  */
 export async function saveJobData(jobData: JobPostingData) {
   try {
+    console.log('Intentando guardar oferta de trabajo:', jobData.job_posting_id);
+    
     // Verificar si la oferta ya existe en la base de datos
-    const { data: existingJob } = await supabase
+    const { data: existingJob, error: selectError } = await supabase
       .from(JOBS_TABLE)
       .select('*')
       .eq('job_posting_id', jobData.job_posting_id)
       .single();
 
+    if (selectError && selectError.code !== 'PGRST116') {
+      console.error('Error al verificar si la oferta existe:', selectError);
+      throw selectError;
+    }
+
     if (existingJob) {
+      console.log('Actualizando oferta existente:', jobData.job_posting_id);
       // Actualizar la oferta existente
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from(JOBS_TABLE)
         .update(jobData)
         .eq('job_posting_id', jobData.job_posting_id);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Error al actualizar oferta:', updateError);
+        throw updateError;
+      }
 
+      console.log('Oferta actualizada correctamente:', jobData.job_posting_id);
       return {
         success: true,
         message: 'Datos de la oferta de trabajo actualizados correctamente',
@@ -31,13 +43,38 @@ export async function saveJobData(jobData: JobPostingData) {
       };
     }
 
+    console.log('Creando nueva oferta:', jobData.job_posting_id);
+    
+    // Preparar los datos para inserción, asegurando que todos los campos sean válidos
+    const cleanedJobData = {
+      job_posting_id: jobData.job_posting_id,
+      job_title: jobData.job_title,
+      company_name: jobData.company_name,
+      job_location: jobData.job_location,
+      created_at: jobData.created_at,
+      // Campos opcionales
+      job_work_type: jobData.job_work_type || null,
+      job_base_pay_range: jobData.job_base_pay_range || null,
+      job_posted_time_ago: jobData.job_posted_time_ago || null,
+      job_description_formatted: jobData.job_description_formatted || null,
+      job_requirements: jobData.job_requirements || null,
+      job_qualifications: jobData.job_qualifications || null,
+      company_industry: jobData.company_industry || null,
+      company_description: jobData.company_description || null,
+      applicant_count: jobData.applicant_count || null
+    };
+    
     // Crear nueva oferta
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from(JOBS_TABLE)
-      .insert([jobData]);
+      .insert([cleanedJobData]);
 
-    if (error) throw error;
+    if (insertError) {
+      console.error('Error al insertar nueva oferta:', insertError);
+      throw insertError;
+    }
 
+    console.log('Nueva oferta creada correctamente:', jobData.job_posting_id);
     return {
       success: true,
       message: 'Datos de la oferta de trabajo guardados correctamente',
@@ -48,6 +85,7 @@ export async function saveJobData(jobData: JobPostingData) {
     return {
       success: false,
       message: 'Error al guardar datos de la oferta de trabajo',
+      error: error instanceof Error ? error.message : String(error)
     };
   }
 }
