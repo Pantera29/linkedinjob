@@ -29,7 +29,7 @@ export interface WebhookResponse {
 export interface ApiResponse {
   success: boolean;
   message: string;
-  data?: any;
+  data?: JobPostingData | JobPostingData[] | Record<string, unknown>;
 }
 
 // Tipos para manejo de errores

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveJobData } from '@/services/jobs';
-import { JobPostingData, WebhookResponse } from '@/types';
+import { JobPostingData } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {

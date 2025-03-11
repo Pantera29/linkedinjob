@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import JobDetails from '@/components/JobDetails';
 import Notification from '@/components/Notification';
@@ -9,7 +9,6 @@ import { JobPostingData } from '@/types';
 
 export default function JobPage() {
   const params = useParams();
-  const router = useRouter();
   const [job, setJob] = useState<JobPostingData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notification, setNotification] = useState<{
