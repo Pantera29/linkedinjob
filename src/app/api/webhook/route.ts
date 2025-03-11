@@ -140,6 +140,28 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function GET(request: NextRequest) {
+  // Obtener parámetros de consulta si los hay
+  const searchParams = request.nextUrl.searchParams;
+  const testParam = searchParams.get('test');
+  
+  if (testParam === 'true') {
+    // Si es una solicitud de prueba, devolver un mensaje de prueba
+    return NextResponse.json({
+      success: true,
+      message: 'Webhook funcionando correctamente',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Respuesta por defecto para GET
+  return NextResponse.json({
+    success: true,
+    message: 'API de webhook activa y funcionando. Usa POST para enviar datos.',
+    documentation: 'Envía datos de trabajo en formato JSON para procesarlos.'
+  });
+}
+
 // Configuración para permitir solicitudes POST desde Bright Data
 export const config = {
   api: {
