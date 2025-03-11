@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Recolector de Datos deOfertas de LinkedIn",
+  title: "Recolector de Datos de Ofertas de LinkedIn",
   description: "Aplicación para extraer y almacenar datos de ofertas de trabajo de LinkedIn utilizando la API de Bright Data",
 };
 
