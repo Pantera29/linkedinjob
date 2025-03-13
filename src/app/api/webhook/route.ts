@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
     
     // Registrar los datos recibidos para depuración
     console.log('Webhook recibido - Datos:', JSON.stringify(body, null, 2));
+    console.log('NOTA: El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.');
     
     // NUEVO: Detectar mensaje de prueba de Brightdata
     if (body && body.category === 'TEST' && body.subject === 'Test notification') {
@@ -67,7 +68,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'System notification received',
-        received: body
+        received: body,
+        note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
       });
     }
     // Si no se reconoce ningún formato
@@ -78,7 +80,8 @@ export async function POST(request: NextRequest) {
         { 
           success: true, // Cambiado a true para evitar errores en Brightdata
           message: 'Datos recibidos pero formato no reconocido',
-          received: body 
+          received: body,
+          note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
         },
         { status: 200 } // Cambiado a 200
       );
@@ -90,7 +93,8 @@ export async function POST(request: NextRequest) {
         { 
           success: true, // Cambiado a true
           message: 'No se encontraron datos de trabajo válidos para procesar, pero la solicitud fue recibida correctamente',
-          received: body 
+          received: body,
+          note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
         },
         { status: 200 } // Cambiado a 200
       );
@@ -136,7 +140,8 @@ export async function POST(request: NextRequest) {
         { 
           success: true, // Cambiado a true para evitar errores en Brightdata
           message: 'Solicitud procesada pero no se pudo guardar ningún trabajo',
-          details: results 
+          details: results,
+          note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
         },
         { status: 200 } // Cambiado a 200
       );
@@ -145,7 +150,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Se procesaron ${results.length} ofertas de trabajo. ${results.filter(r => r.success).length} guardadas correctamente.`,
-      results: results
+      results: results,
+      note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
     });
   } catch (error) {
     console.error('Error al procesar datos del webhook:', error);
@@ -154,7 +160,8 @@ export async function POST(request: NextRequest) {
       { 
         success: true, // Cambiado a true para evitar errores en Brightdata
         message: 'Datos recibidos pero hubo un error al procesarlos',
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
+        note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
       },
       { status: 200 } // Cambiado a 200
     );
@@ -171,7 +178,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Webhook funcionando correctamente',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      note: 'El webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo.'
     });
   }
   
@@ -179,7 +187,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     success: true,
     message: 'API de webhook activa y funcionando. Usa POST para enviar datos.',
-    documentation: 'Envía datos de trabajo en formato JSON para procesarlos.'
+    documentation: 'Envía datos de trabajo en formato JSON para procesarlos.',
+    important_note: 'Este webhook está obsoleto. Se recomienda usar la nueva API que implementa polling directo para obtener datos de BrightData.'
   });
 }
 

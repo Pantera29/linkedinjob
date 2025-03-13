@@ -40,13 +40,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Nota: Ahora requestJobData realiza todo el proceso de obtener y guardar los datos
+    // ya no es necesario esperar a un webhook
     const result = await requestJobData(url);
     
-    return NextResponse.json(result);
+    if (!result.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: result.message || 'Error al procesar la solicitud',
+          error: result.error
+        },
+        { status: 500 }
+      );
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Datos de la oferta de trabajo procesados exitosamente',
+      data: result.data
+    });
   } catch (error) {
     console.error('Error en la solicitud de datos de la oferta:', error);
     return NextResponse.json(
-      { success: false, message: 'Error al procesar la solicitud' },
+      { 
+        success: false, 
+        message: 'Error al procesar la solicitud',
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      },
       { status: 500 }
     );
   }

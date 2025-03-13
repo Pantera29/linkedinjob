@@ -41,6 +41,11 @@ export default function Home() {
 
   const handleSubmit = async (url: string) => {
     setIsLoading(true);
+    setNotification({
+      message: 'Procesando solicitud... Esto puede tardar hasta 2-3 minutos mientras se extraen los datos de LinkedIn.',
+      type: 'info'
+    });
+    
     try {
       const response = await fetch('/api/jobs', {
         method: 'POST',
@@ -54,12 +59,20 @@ export default function Home() {
 
       if (data.success) {
         setNotification({
-          message: 'Solicitud enviada correctamente. Los datos se procesarán en breve.',
+          message: 'Datos de la oferta de trabajo procesados y guardados correctamente.',
           type: 'success'
         });
+        
+        // Actualizar la lista de trabajos con los datos nuevos
+        const updatedJobsResponse = await fetch('/api/jobs');
+        const updatedJobsData = await updatedJobsResponse.json();
+        
+        if (updatedJobsData.success && updatedJobsData.data) {
+          setJobs(updatedJobsData.data);
+        }
       } else {
         setNotification({
-          message: data.message || 'Error al enviar la solicitud',
+          message: data.message || 'Error al procesar la solicitud',
           type: 'error'
         });
       }
