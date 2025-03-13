@@ -8,6 +8,51 @@ const DATASET_ID = process.env.BRIGHTDATA_DATASET_ID || 'gd_lpfll7v5hcqtkxl6l';
 const MAX_POLLING_ATTEMPTS = 30; // Máximo número de intentos para verificar el estado del snapshot
 const POLLING_INTERVAL = 5000; // Intervalo entre consultas en milisegundos (5 segundos)
 
+// Definir interfaces para los datos que recibimos de BrightData
+interface BrightDataItem {
+  job_posting_id?: string;
+  job_title?: string;
+  company_name?: string;
+  company_id?: string;
+  job_location?: string;
+  job_work_type?: string;
+  job_base_pay_range?: string;
+  job_posted_time_ago?: string;
+  job_description_formatted?: string;
+  job_summary?: string;
+  job_requirements?: string[] | null;
+  job_qualifications?: string[] | null;
+  job_seniority_level?: string;
+  job_function?: string;
+  job_employment_type?: string;
+  job_industries?: string | string[] | null;
+  company_industry?: string;
+  company_description?: string;
+  company_url?: string;
+  company_logo?: string;
+  job_num_applicants?: number;
+  applicant_count?: number;
+  job_posted_date?: string;
+  job_posted_time?: string;
+  apply_link?: string;
+  country_code?: string;
+  title_id?: string;
+  application_availability?: boolean;
+  discovery_input?: Record<string, unknown>;
+  job_poster?: Record<string, unknown>;
+  base_salary?: Record<string, unknown>;
+  [key: string]: unknown; // Para admitir propiedades adicionales que puedan venir
+}
+
+interface BrightDataResponse {
+  result?: {
+    data?: BrightDataItem;
+  };
+  job_data?: BrightDataItem;
+  job_posting_id?: string; // Para detectar si es un item directamente
+  [key: string]: unknown;
+}
+
 /**
  * Envía una solicitud a la API de Bright Data para extraer datos de una oferta de trabajo de LinkedIn
  * @param url URL de la oferta de trabajo de LinkedIn
@@ -75,7 +120,7 @@ export async function requestJobData(url: string) {
  * @param snapshotId ID del snapshot a consultar
  * @returns Datos del snapshot cuando están disponibles
  */
-async function pollForSnapshotData(snapshotId: string) {
+async function pollForSnapshotData(snapshotId: string): Promise<BrightDataResponse | BrightDataItem[]> {
   const snapshotUrl = `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}?format=json`;
   const headers = {
     Authorization: `Bearer ${API_TOKEN}`
@@ -127,9 +172,9 @@ async function pollForSnapshotData(snapshotId: string) {
  * @param item Datos originales de BrightData
  * @returns Objeto con los campos mapeados correctamente
  */
-function mapFieldNames(item: any): Partial<JobPostingData> {
+function mapFieldNames(item: BrightDataItem): Partial<JobPostingData> {
   const mappedData: Partial<JobPostingData> = {
-    ...item,
+    ...item as unknown as Partial<JobPostingData>,
     created_at: new Date().toISOString()
   };
 
@@ -139,9 +184,12 @@ function mapFieldNames(item: any): Partial<JobPostingData> {
   }
 
   if ('job_industries' in item) {
-    mappedData.company_industry = item.job_industries;
-    // Si el campo es un string, también lo guardamos en job_industries como array
-    if (typeof item.job_industries === 'string') {
+    // Guardamos como string para company_industry
+    if (Array.isArray(item.job_industries)) {
+      mappedData.company_industry = item.job_industries.join(', ');
+    } else if (typeof item.job_industries === 'string') {
+      mappedData.company_industry = item.job_industries;
+      // Si el campo es un string, también lo guardamos en job_industries como array
       mappedData.job_industries = [item.job_industries];
     }
   }
@@ -167,7 +215,7 @@ function mapFieldNames(item: any): Partial<JobPostingData> {
  * @param data Datos recibidos del snapshot
  * @returns Resultado del procesamiento
  */
-async function processAndSaveJobData(data: any) {
+async function processAndSaveJobData(data: BrightDataResponse | BrightDataItem[]) {
   console.log('Procesando datos recibidos de BrightData:', JSON.stringify(data, null, 2));
   
   // Extraer los datos de trabajo dependiendo de la estructura
@@ -181,17 +229,17 @@ async function processAndSaveJobData(data: any) {
       const jobData = mapFieldNames(item);
       return jobData as JobPostingData;
     });
-  } else if (data.result && data.result.data) {
+  } else if ('result' in data && data.result && data.result.data) {
     console.log('Datos en formato result.data');
     const jobData = mapFieldNames(data.result.data);
     jobsToProcess = [jobData as JobPostingData];
-  } else if (data.job_data) {
+  } else if ('job_data' in data && data.job_data) {
     console.log('Datos en formato job_data');
     const jobData = mapFieldNames(data.job_data);
     jobsToProcess = [jobData as JobPostingData];
-  } else if (data.job_posting_id) {
+  } else if ('job_posting_id' in data) {
     console.log('Datos directamente en el objeto raíz');
-    const jobData = mapFieldNames(data);
+    const jobData = mapFieldNames(data as BrightDataItem);
     jobsToProcess = [jobData as JobPostingData];
   } else {
     console.error('Estructura de datos no reconocida:', data);
